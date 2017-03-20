@@ -8,3 +8,6 @@ class Redis:
 
     def getValue(self,key):
         self.r.get(key)
+
+
+    print (r.get('sss'))
