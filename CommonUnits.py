@@ -4,7 +4,9 @@ import requests
 import urllib2
 import sys
 import re
+import redis
 
+#获取机场列表
 class CNList:
     list = []
     url = "http://www.fnetravel.com/airports-in-china-cn.html"
@@ -17,8 +19,21 @@ class CNList:
         repattern = re.compile(pattern)
         CodeGroup = repattern.findall(AirportCode)
         for i,item in enumerate(CodeGroup):
-            NoSpace = re.sub("\n\n\n","",item).encode("utf-8")
-            print ("这是第%d"%i+"条数据，内容为\n"+NoSpace)
-            huiche = NoSpace.split('\n')
-            for hcitem in huiche:
-                print hcitem
+            SingleAirportList = re.sub("\n\n\n","",item).encode("utf-8").split('\n')
+            list.append(SingleAirportList)
+
+    def getAirportList(self):
+        return self.list
+
+class Redis:
+
+    r = redis.Redis(host='localhost',port=6379,db=0)
+
+    def setValue(self,key,value):
+        self.r.set(key,value)
+
+    def getValue(self,key):
+        return self.r.get(key)
+    #添加set内容
+    def setZValue(self,set,member,score):
+        self.r.zadd(set,score,member)

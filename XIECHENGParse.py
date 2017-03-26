@@ -7,13 +7,19 @@ import requests
 import chardet
 import json
 import time
-
+import random
+import string
+from CommonUnits import Redis
 reload(sys)
 sys.setdefaultencoding('gb2312')
+
 class Ticket:
-    def GetTicketInfo(Arr,Des,Date):
+    count =0
+    errcount = 0
+    #获取包含机票信息的dict
+    def GetTicketInfo(self,Dep,Arr,Date):
         #baseUrl = "http://flights.ctrip.com/booking/%s-%s-day-1.html?ddate1=2017-04-13"%(Arr,Des)
-        url = "http://flights.ctrip.com/domesticsearch/search/SearchFirstRouteFlights?DCity1="+Arr+"&ACity1="+Des+"&SearchType=S&DDate1=2017-04-12&IsNearAirportRecommond=0&LogToken=5fce7bea0392403fa35c77255ee95382&rk=1.8219278893756763093732&CK=020BB483F657E6F1D86136E48C4BC7E1&r=0.32218029023851888860518"
+        url = "http://flights.ctrip.com/domesticsearch/search/SearchFirstRouteFlights?DCity1="+Dep+"&ACity1="+Arr+"&SearchType=S&DDate1=2017-"+Date+"&IsNearAirportRecommond=0&LogToken=5fce7bea0392403fa35c77255ee95382&rk=1.8219278893756763093732&CK=020BB483F657E6F1D86136E48C4BC7E1&r=0.32218029023851888860518"
         req_header = {'Accept-Encoding':'gzip, deflate, sdch',
                         'Accept-Language':'zh-CN,zh;q=0.8,en;q=0.6,zh-TW;q=0.4',
                         'Cache-Control':'max-age=0',
@@ -37,26 +43,41 @@ class Ticket:
                 print e
                 print ("***********")
                 return ;
-    def ParseDict(dict):
+
+    #根据dcit，解析其中包含的相关机票的信息
+    def ParseDict(self,dict,set):
+        self.count +=1
         try:
             fis = dict['fis']
-            lps = dict['lps']
+            lp = dict['lp']
             for item in fis:
                 arr = item['acn']
                 arrairport = item['apbn']
                 arraircode = item['acc']
                 arrflightInc = item['alc']
                 arrflighttime = item['at']
-                des = item['dcn']
-                desairport = item['dpbn']
-                desaircode = item['dcc']
-                desflighttime = item['dt']
+                dep = item['dcn']
+                depairport = item['dpbn']
+                depaircode = item['dcc']
+                depflighttime = item['dt']
                 fn = item['fn']
                 price = item['lp']
-                print fn
-                print price
-            print ("每日的最低价为")
-            print (lps['2017-04-12'])
-        except :
-            print "对不起，没有查到相关机票信息，请检查后确认"
+                # print fn
+                # print price
+            print (u'  从 '+dep+u' 到 '+arr+u' 的 最低票价为 ')
+            print (lp)
+            self.Add(set,depaircode,arraircode,price)
+        except Exception ,e:
+            self.count +=1
 
+    #将机票信息存储到redis中的set里，set名为输入的set，set里面的score为票价，member为出发地+目的地
+    def Add(self,set,dep,arr,price):
+        member = dep+arr
+        score = price
+        Redis().setZValue(set,score,member)
+    #输入起始地与目的地，获取并存储机票信息的入口
+    def GetLowTicketInfo(self,Idsalt,dep,arr,date,size):
+         dict = self.GetTicketInfo(dep,arr,date)
+         self.ParseDict(dict,Idsalt)
+         if (self.count == size):
+             print "共查询了到达%d个城市的航班，其中有%d个机场查询不到对应的航班信息"%(self.count,self.errcount)
